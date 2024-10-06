@@ -98,7 +98,11 @@ if [[ -z "$root_auth_keys_path" ]]; then
     root_auth_keys_path=$auth_keys_path
 fi
 
-key_pair=$(docker run ghcr.io/xtls/xray-core:sha-c30f5d4-ls x25519)
+key_pair=$(docker run ghcr.io/xtls/xray-core:latest x25519)
+
+image="nixos-xray:local"
+docker buildx build -t $image .
+echo "Built local docker image: $image"
 
 json=$(jq -n '{"loglevel": "info", "shadowsocks": {"password": $shadowsocks_password}, "vless": {"domain": $domain, "publicKey": $pubKey, "privateKey": $privKey, "shortId": $sid}, "enable_nodeexporter": ($enable_nodeexporter | test("true")) }' \
 --arg shadowsocks_password $(openssl rand -hex 32) \
@@ -126,9 +130,6 @@ done
 echo "$json" | jq '.' > config.json
 echo "Configuration file generated: config.json"
 
-image="nixos-xray:local"
-docker buildx build -t $image .
-echo "Built local docker image: $image"
 echo "Running deployment... "
 
 docker run  --network host -e TARGET=$server_ip -v ./config.json:/etc/nixos-xray/xray-config.json -v $root_auth_keys_path:/etc/nixos-xray/root_authorized_keys.txt -v $auth_keys_path:/etc/nixos-xray/authorized_keys.txt -v $priv_key_path:/root/.ssh/id_rsa:ro $image
